@@ -1,0 +1,40 @@
+# Render Blueprint: the OpenFGA server in this repository and its Postgres database.
+# See README.md for setup.
+services:
+  - type: web
+    name: epro-auth
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # e:pro serves German grid operators; keep authorization data in the EU.
+    region: frankfurt
+    # Free instances sleep when idle, and the first request after that can take long enough for
+    # the app's sign-in to fail. Switch to a paid plan for an always-on server.
+    plan: free
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    # The model is uploaded by the app's setup script, not baked into the image.
+    buildFilter:
+      ignoredPaths:
+        - model.fga
+        - model.test.yaml
+        - README.md
+    envVars:
+      - key: OPENFGA_DATASTORE_URI
+        fromDatabase:
+          name: epro-auth-db
+          property: connectionString
+      # The API key. Copy it from the Render dashboard into the app as FGA_API_TOKEN.
+      - key: OPENFGA_AUTHN_PRESHARED_KEYS
+        generateValue: true
+
+databases:
+  - name: epro-auth-db
+    databaseName: openfga
+    user: openfga
+    region: frankfurt
+    # Check Render's free-database limits before relying on it; free databases expire.
+    plan: free
+    postgresMajorVersion: "17"
+    # Empty list: no connections from the internet, only from services in this Render account.
+    ipAllowList: []

@@ -1,0 +1,48 @@
+model
+  schema 1.1
+
+# Who may do what in e:pro Portfolio.
+#
+# Roles are granted per organisational unit (Netzbau Hochspannung, Asset Management, …).
+# Measures (projects) and plan versions belong to one unit and inherit its roles.
+
+type user
+
+type organization
+  relations
+    define admin: [user]
+
+type org_unit
+  relations
+    define organization: [organization]
+    define portfolio_manager: [user] or admin from organization
+    define budget_approver: [user] or portfolio_manager
+    define planner: [user] or portfolio_manager
+    define viewer: [user] or planner or budget_approver
+
+    define can_view: viewer
+    define can_plan_measures: planner
+    define can_prioritize: portfolio_manager
+    define can_create_scenarios: planner
+    define can_approve_budgets: budget_approver
+    define can_view_reports: viewer
+
+type plan_version
+  relations
+    define org_unit: [org_unit]
+
+    define can_view: viewer from org_unit
+    define can_edit_schedule: planner from org_unit
+    define can_prioritize: portfolio_manager from org_unit
+    define can_release: portfolio_manager from org_unit
+
+type project
+  relations
+    define org_unit: [org_unit]
+    define owner: [user]
+    define editor: [user] or owner or planner from org_unit
+    define viewer: [user] or editor or viewer from org_unit
+
+    define can_view: viewer
+    define can_edit: editor
+    define can_edit_budget: budget_approver from org_unit

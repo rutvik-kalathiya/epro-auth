@@ -1,0 +1,91 @@
+# Model tests: docker run --rm -v "$PWD:/model" -w /model openfga/cli model test --tests model.test.yaml
+name: e:pro Portfolio
+model_file: ./model.fga
+
+tuples:
+  - { user: organization:ten, relation: organization, object: org_unit:hv-construction }
+  - { user: organization:ten, relation: organization, object: org_unit:asset-management }
+  - { user: user:admin, relation: admin, object: organization:ten }
+  - { user: user:mkoenig, relation: portfolio_manager, object: org_unit:hv-construction }
+  - { user: user:sneumann, relation: budget_approver, object: org_unit:hv-construction }
+  - { user: user:kweber, relation: planner, object: org_unit:hv-construction }
+  - { user: user:guest, relation: viewer, object: org_unit:hv-construction }
+  - { user: user:mkoenig, relation: viewer, object: org_unit:asset-management }
+  - { user: org_unit:hv-construction, relation: org_unit, object: plan_version:2026.10 }
+  - { user: org_unit:hv-construction, relation: org_unit, object: project:TEN-P-1042 }
+  - { user: org_unit:asset-management, relation: org_unit, object: project:TEN-P-1230 }
+  - { user: user:tgast, relation: owner, object: project:TEN-P-1230 }
+
+tests:
+  - name: portfolio manager of a unit
+    check:
+      - user: user:mkoenig
+        object: org_unit:hv-construction
+        assertions: { can_prioritize: true, can_plan_measures: true, can_approve_budgets: true, can_view_reports: true }
+      - user: user:mkoenig
+        object: plan_version:2026.10
+        assertions: { can_view: true, can_prioritize: true, can_release: true, can_edit_schedule: true }
+      - user: user:mkoenig
+        object: project:TEN-P-1042
+        assertions: { can_view: true, can_edit: true, can_edit_budget: true }
+
+  - name: viewer in another unit
+    check:
+      - user: user:mkoenig
+        object: project:TEN-P-1230
+        assertions: { can_view: true, can_edit: false, can_edit_budget: false }
+
+  - name: budget approver is not a planner
+    check:
+      - user: user:sneumann
+        object: project:TEN-P-1042
+        assertions: { can_view: true, can_edit: false, can_edit_budget: true }
+      - user: user:sneumann
+        object: plan_version:2026.10
+        assertions: { can_prioritize: false, can_edit_schedule: false }
+
+  - name: planner edits measures but cannot prioritise or approve
+    check:
+      - user: user:kweber
+        object: project:TEN-P-1042
+        assertions: { can_edit: true, can_edit_budget: false }
+      - user: user:kweber
+        object: plan_version:2026.10
+        assertions: { can_edit_schedule: true, can_prioritize: false, can_release: false }
+
+  - name: read-only viewer
+    check:
+      - user: user:guest
+        object: project:TEN-P-1042
+        assertions: { can_view: true, can_edit: false }
+      - user: user:guest
+        object: org_unit:hv-construction
+        assertions: { can_view_reports: true, can_plan_measures: false }
+
+  - name: project owner outside the unit roles
+    check:
+      - user: user:tgast
+        object: project:TEN-P-1230
+        assertions: { can_view: true, can_edit: true, can_edit_budget: false }
+
+  - name: organisation admin manages every unit
+    check:
+      - user: user:admin
+        object: plan_version:2026.10
+        assertions: { can_prioritize: true, can_release: true }
+      - user: user:admin
+        object: project:TEN-P-1230
+        assertions: { can_edit: true }
+
+  - name: no access without a role
+    check:
+      - user: user:stranger
+        object: project:TEN-P-1042
+        assertions: { can_view: false, can_edit: false }
+
+  - name: list what a user can edit
+    list_objects:
+      - user: user:kweber
+        type: project
+        assertions:
+          can_edit: [project:TEN-P-1042]
